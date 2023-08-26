@@ -1,29 +1,42 @@
 const urlopen = "https://slack.com/api/conversations.open";
 const urlschedMsg = "https://slack.com/api/chat.postMessage";
-//const token = ;
+const token = ""; // Insert Slack Token
 const date = Utilities.formatDate(new Date(), "PST", "MM-dd");
 
+const dayBeforeMessage = "You are on trash tomorrow! Work is typically split by Upstairs (roof, laundry room, upstairs bathroom, upstairs main hall, main hall bathroom) and Downstairs (downstairs hall, downstairs bathroom, kitchen, alumni room, library), though this is only a recommendation and you may split the work however you choose as long as they all get taken care of."
+const dayOfMessage = "This is your reminder that you are on trash today! Let Stinson know if you can't find trash bags in the house or if there is no trash can at a listed spot. If a bin is disgusting inside, please wash it out in the parking lot, turn it upside down by the side of the house to dry, and let Stinson know."
+
 function todayStatus() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("cleanings");
-  var range = sheet.getRange(92, 1, 62, 3);
+  // Extract rows {task date, name1, checkbox, name2, checbox, notification date}
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Trash");
+  var range = sheet.getRange(4, 1, 63, 6);
   var data = range.getValues();
 
   for (i in data) {
-    var check = Utilities.formatDate(new Date(data[i][0]), "GMT+1", "MM-dd");
-    if (date == check) {
-      var recipients = [data[i][1], data[i][2]];
-      var ids = getIds(recipients);
+    var dayBefore = Utilities.formatDate(new Date(data[i][5]), "PST", "MM-dd");
+    var dayOf = Utilities.formatDate(new Date(data[i][0]), "PST", "MM-dd");
 
-      return sendSlackGroupMessage(ids);
+    if (date == dayBefore) {
+      var recipients = [data[i][1], data[i][3]];
+      var ids = getSlackIds(recipients);
+
+      return sendSlackGroupMessage(ids, dayOf, dayBeforeMessage);
+    }
+
+    if (date == dayOf) {
+      var recipients = [data[i][1], data[i][3]];
+      var ids = getSlackIds(recipients);
+
+      return sendSlackGroupMessage(ids, dayOf, dayOfMessage);
     }
   }
   return false;
 }
 
-function getIds(recipients) {
+function getSlackIds(recipients) {
+  // Extract rows {lastName, brotherStatus, inHouse, roomID, slackID}
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("brotherStatus");
-
-  var range = sheet.getRange(4, 2, 31, 5);
+  var range = sheet.getRange(4, 2, 50, 5);
   var data = range.getValues();
   const houseManagerId = "U030X11DCG4";
 
@@ -43,9 +56,8 @@ function getIds(recipients) {
   return ids;
 }
 
-function sendSlackGroupMessage(recipients) {
-  // Open dm with recipients
-
+function sendSlackGroupMessage(recipients, date, message) {
+  // Open Channel
   const channelName = "trash-group-"+date;
 
   const openParams = {
@@ -65,14 +77,13 @@ function sendSlackGroupMessage(recipients) {
   const openData = JSON.parse(openResponse.getContentText());
 
   if (!openData.ok) {
-    Logger.log("failed to create group channel on " + date);
+    Logger.log("failed to create group channel for trash on " + date);
     Logger.log(openData);
     return false;
   }
 
   // Send Message
   const channelID = openData.channel.id;
-  text = "You are on trash today! This is a test.";
 
   const messageParams = {
     method: "post",
@@ -82,7 +93,7 @@ function sendSlackGroupMessage(recipients) {
     },
     payload: JSON.stringify({
       "channel": channelID,
-      "text": text
+      "text": message
     })
   };
 
@@ -90,7 +101,7 @@ function sendSlackGroupMessage(recipients) {
   const messageData = JSON.parse(messageResponse.getContentText());
 
   if (!messageData.ok) {
-    Logger.log("Failed to send message on " + date);
+    Logger.log("Failed to send message for trash on "+ date);
     Logger.log(messageData);
     return false;
   }

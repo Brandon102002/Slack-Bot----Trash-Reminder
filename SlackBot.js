@@ -9,7 +9,8 @@ const dayOfMessage = "This is your reminder that you are on trash today! Let Sti
 function todayStatus() {
   // Extract rows {task date, name1, checkbox, name2, checbox, notification date}
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Trash");
-  var range = sheet.getRange(4, 1, 63, 6);
+  // Set to trash data range: (startRow, startCol, numRows, numCols)
+  var range = sheet.getRange(4, 1, 63, 6); 
   var data = range.getValues();
 
   for (i in data) {
@@ -36,7 +37,8 @@ function todayStatus() {
 function getSlackIds(recipients) {
   // Extract rows {lastName, brotherStatus, inHouse, roomID, slackID}
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("brotherStatus");
-  var range = sheet.getRange(4, 2, 50, 5);
+  // Set to brotherStatus data range: (startRow, startCol, numRows, numCols)
+  var range = sheet.getRange(4, 2, 50, 5); 
   var data = range.getValues();
   const houseManagerId = "U030X11DCG4";
 

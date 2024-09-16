@@ -13,19 +13,19 @@ function todayStatus() {
   // [[task date, name1, checkbox, name2, checbox, notification date]]
   data = pullTrashData(); 
 
-  for (i in data) {
-    var taskDate = Utilities.formatDate(new Date(data[i][0]), "PST", "MM-dd");
-    var notifDate = Utilities.formatDate(new Date(data[i][5]), "PST", "MM-dd");
+  for (row in data) {
+    var taskDate = Utilities.formatDate(new Date(data[row][0]), "PST", "MM-dd");
+    var notifDate = Utilities.formatDate(new Date(data[row][5]), "PST", "MM-dd");
 
     if (date == notifDate) {
-      var recipients = [data[i][1], data[i][3]];
+      var recipients = [data[row][1], data[row][3]];
       var ids = getIds(recipients);
 
       sendSlackGroupMessage(recipients, taskDate, dayBeforeMessage);
     }
 
     if (date == taskDate) {
-      var recipients = [data[i][1], data[i][3]];
+      var recipients = [data[row][1], data[row][3]];
       var ids = getIds(recipients);
 
       sendHouseMessage(houseChannel, recipients[0], recipients[1], taskDate);
@@ -57,9 +57,9 @@ function getIds(recipients) {
 
   var ids = [];
   for (r in recipients) {
-    for (i in data) {
-      if (recipients[r] == data[i][0]) {
-        ids = ids.concat([data[i][8]]); // Col w/ slackID
+    for (row in data) {
+      if (recipients[r] == data[row][0]) {
+        ids = ids.concat([data[row][8]]); // Col w/ slackID
       }
     }
   }

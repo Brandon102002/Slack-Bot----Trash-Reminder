@@ -2,51 +2,64 @@ const urlopen = "https://slack.com/api/conversations.open";
 const urlschedMsg = "https://slack.com/api/chat.postMessage";
 const token = ""; // Insert Slack Token
 const date = Utilities.formatDate(new Date(), "PST", "MM-dd");
+const houseManagerId = "U05RACKV54J"; // Set manually per semester
+const houseChannel = C01HP47HD0E;
 
 const dayBeforeMessage = "You are on trash tomorrow! Work is typically split by Upstairs (roof, laundry room, upstairs bathroom, upstairs main hall, main hall bathroom) and Downstairs (downstairs hall, downstairs bathroom, kitchen, alumni room, library), though this is only a recommendation and you may split the work however you choose as long as they all get taken care of."
-const dayOfMessage = "This is your reminder that you are on trash today! Let Stinson know if you can't find trash bags in the house or if there is no trash can at a listed spot. If a bin is disgusting inside, please wash it out in the parking lot, turn it upside down by the side of the house to dry, and let Stinson know."
+const dayOfMessage = "This is your reminder that you are on trash today! Let the House Manager know if you can't find trash bags in the house or if there is no trash can at a listed spot. If a bin is disgusting inside, please wash it out in the parking lot, turn it upside down by the side of the house to dry, and let the House Manager know."
+const finalReminder = "This is your final reminder to do trash if you haven't already."
 
 function todayStatus() {
-  // Extract rows {task date, name1, checkbox, name2, checbox, notification date}
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Trash");
-  // Set to trash data range: (startRow, startCol, numRows, numCols)
-  var range = sheet.getRange(4, 1, 63, 6); 
-  var data = range.getValues();
+  // [[task date, name1, checkbox, name2, checbox, notification date]]
+  data = pullData(); 
 
   for (i in data) {
-    var dayBefore = Utilities.formatDate(new Date(data[i][5]), "PST", "MM-dd");
-    var dayOf = Utilities.formatDate(new Date(data[i][0]), "PST", "MM-dd");
+    var taskDate = Utilities.formatDate(new Date(data[i][0]), "PST", "MM-dd");
+    var notifDate = Utilities.formatDate(new Date(data[i][5]), "PST", "MM-dd");
 
-    if (date == dayBefore) {
+    if (date == notifDate) {
       var recipients = [data[i][1], data[i][3]];
-      var ids = getSlackIds(recipients);
+      var ids = getIds(recipients);
 
-      return sendSlackGroupMessage(ids, dayOf, dayBeforeMessage);
+      sendSlackGroupMessage(recipients, taskDate, dayBeforeMessage);
     }
 
-    if (date == dayOf) {
+    if (date == taskDate) {
       var recipients = [data[i][1], data[i][3]];
-      var ids = getSlackIds(recipients);
+      var ids = getIds(recipients);
 
-      return sendSlackGroupMessage(ids, dayOf, dayOfMessage);
+      sendHouseMessage(houseChannel, recipients[0], recipients[1], taskDate);
+      sendSlackGroupMessage(ids, taskDate, dayOfMessage);
+      scheduleSlackMessage(ids, taskDate, finalReminder);
     }
   }
-  return false;
 }
 
-function getSlackIds(recipients) {
-  // Extract rows {lastName, brotherStatus, inHouse, roomID, slackID}
+function pullTrashData() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Trash");
+
+  // Set to trash data range: (startRow, startCol, numRows, numCols)
+  const range = sheet.getRange(4, 1, 63, 6);
+  return range.getValues();
+}
+
+function pullIdData() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("brotherStatus");
+
   // Set to brotherStatus data range: (startRow, startCol, numRows, numCols)
-  var range = sheet.getRange(4, 2, 50, 5); 
-  var data = range.getValues();
-  const houseManagerId = "U030X11DCG4";
+  const range = sheet.getRange(4, 3, 63, 9);
+  return range.getValues();
+}
+
+function getIds(recipients) {
+  //[[name, class, chapterStatus, statusPoints, legacyPoints, inHouse, Room, Birthday, SlackID]]
+  const data = pullIdData(); 
 
   var ids = [];
-  for (r in recipients){
+  for (r in recipients) {
     for (i in data) {
       if (recipients[r] == data[i][0]) {
-        ids = ids.concat([data[i][4]]);
+        ids = ids.concat([data[i][8]]); // Col w/ slackID
       }
     }
   }
@@ -58,55 +71,84 @@ function getSlackIds(recipients) {
   return ids;
 }
 
-function sendSlackGroupMessage(recipients, date, message) {
-  // Open Channel
-  const channelName = "trash-group-"+date;
+function sendHouseMessage(channelID, person1, person2) {
+  var message = "Brothers on trash duty today are " + person1 + " and " + person2;
 
-  const openParams = {
-    method: "post",
-    contentType: "application/json",
-    headers: {
-      "Authorization": "Bearer " + token
-    },
-    payload: JSON.stringify({
-      "name": channelName,
-      "return_im": true,
-      "users": recipients.join(",")
-    })
+  const payload = {
+    "channel": channelID,
+    "text": message
   };
 
-  const openResponse = UrlFetchApp.fetch(urlopen, openParams);
-  const openData = JSON.parse(openResponse.getContentText());
+  postSlackMessage(payload, "send house slack message")
+}
 
-  if (!openData.ok) {
-    Logger.log("failed to create group channel for trash on " + date);
-    Logger.log(openData);
-    return false;
-  }
+function sendSlackGroupMessage(recipients, date, message) {
+  // First opens a dm with recipients, then sends a message
+  const ids = getIds(recipients);
+  const channelName = "trash-group-"+date;
 
-  // Send Message
+  const payloadOpen = {
+    "name": channelName,
+    "return_im": true,
+    "users": ids.join(",")
+  };
+
+  if (postSlackMessage(payloadOpen, "create recipient channel")) {
+    const channelID = openData.channel.id;
+    const payloadSend = {
+      "channel": channelID,
+      "text": message
+    };
+    
+    postSlackMessage(payloadSend, "send recipient message")
+  };
+}
+
+function scheduleSlackMessage(recipients, date, message) {
+  const channelName = "trash-group-"+date;
+
+  const payloadOpen = {
+    "name": channelName,
+    "return_im": true,
+    "users": recipients.join(",")
+  };
+
+  postSlackMessage(payloadOpen, "open channel for final reminder")
+
   const channelID = openData.channel.id;
+  const scheduledTime = new Date(new Date().setHours(20, 0, 0, 0)); // Sets the time to 8:00 PM.
+  const unixTime = Math.floor(scheduledTime.getTime() / 1000);
 
+  const payloadSend = {
+    "channel": channelID,
+    "post_at": unixTime,
+    "text": message
+  };
+
+  postSlackMessage(payloadSend, "schedule final reminder")
+  
+  return true;
+}
+
+function postSlackMessage(payload, loggingReason) {
+  // Takes a payload, string loggingReason to log failures, and outputs whether the API call went through
   const messageParams = {
     method: "post",
     contentType: "application/json",
     headers: {
       "Authorization": "Bearer " + token
     },
-    payload: JSON.stringify({
-      "channel": channelID,
-      "text": message
-    })
+    payload: JSON.stringify(payload)
   };
 
-  const messageResponse = UrlFetchApp.fetch(urlschedMsg, messageParams);
-  const messageData = JSON.parse(messageResponse.getContentText());
+  const scheduleResponse = UrlFetchApp.fetch("https://slack.com/api/chat.scheduleMessage", scheduleMessageParams);
+  const scheduleData = JSON.parse(scheduleResponse.getContentText());
 
-  if (!messageData.ok) {
-    Logger.log("Failed to send message for trash on "+ date);
-    Logger.log(messageData);
-    return false;
+  if (!scheduleData.ok) {
+    Logger.log("Failed to " + loggingReason + " on " + date);
+    Logger.log(scheduleData);
+    return false
   }
-  
-  return true;
+
+  return true
 }

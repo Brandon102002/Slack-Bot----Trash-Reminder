@@ -3,7 +3,7 @@ const urlschedMsg = "https://slack.com/api/chat.postMessage";
 const token = ""; // Insert Slack Token
 const date = Utilities.formatDate(new Date(), "PST", "MM-dd");
 const houseManagerId = "U05RACKV54J"; // Set manually per semester
-const houseChannel = C01HP47HD0E;
+const houseChannel = "C01HP47HD0E";
 
 const dayBeforeMessage = "You are on trash tomorrow! Work is typically split by Upstairs (roof, laundry room, upstairs bathroom, upstairs main hall, main hall bathroom) and Downstairs (downstairs hall, downstairs bathroom, kitchen, alumni room, library), though this is only a recommendation and you may split the work however you choose as long as they all get taken care of."
 const dayOfMessage = "This is your reminder that you are on trash today! Let the House Manager know if you can't find trash bags in the house or if there is no trash can at a listed spot. If a bin is disgusting inside, please wash it out in the parking lot, turn it upside down by the side of the house to dry, and let the House Manager know."
@@ -11,7 +11,7 @@ const finalReminder = "This is your final reminder to do trash if you haven't al
 
 function todayStatus() {
   // [[task date, name1, checkbox, name2, checbox, notification date]]
-  data = pullData(); 
+  data = pullTrashData(); 
 
   for (i in data) {
     var taskDate = Utilities.formatDate(new Date(data[i][0]), "PST", "MM-dd");
@@ -141,7 +141,7 @@ function postSlackMessage(payload, loggingReason) {
     payload: JSON.stringify(payload)
   };
 
-  const scheduleResponse = UrlFetchApp.fetch("https://slack.com/api/chat.scheduleMessage", scheduleMessageParams);
+  const scheduleResponse = UrlFetchApp.fetch("https://slack.com/api/chat.scheduleMessage", messageParams);
   const scheduleData = JSON.parse(scheduleResponse.getContentText());
 
   if (!scheduleData.ok) {

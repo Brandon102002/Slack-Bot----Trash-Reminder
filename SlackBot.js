@@ -13,19 +13,19 @@ function todayStatus() {
   // [[task date, name1, checkbox, name2, checbox, notification date]]
   data = pullTrashData(); 
 
-  for (row in data) {
-    var taskDate = Utilities.formatDate(new Date(data[row][0]), "PST", "MM-dd");
-    var notifDate = Utilities.formatDate(new Date(data[row][5]), "PST", "MM-dd");
+  for (i in data) {
+    var taskDate = Utilities.formatDate(new Date(data[i][0]), "PST", "MM-dd");
+    var notifDate = Utilities.formatDate(new Date(data[i][5]), "PST", "MM-dd");
 
     if (date == notifDate) {
-      var recipients = [data[row][1], data[row][3]];
+      var recipients = [data[i][1], data[i][3]];
       var ids = getIds(recipients);
 
       sendSlackGroupMessage(recipients, taskDate, dayBeforeMessage);
     }
 
     if (date == taskDate) {
-      var recipients = [data[row][1], data[row][3]];
+      var recipients = [data[i][1], data[i][3]];
       var ids = getIds(recipients);
 
       sendHouseMessage(houseChannel, recipients[0], recipients[1], taskDate);
@@ -57,9 +57,9 @@ function getIds(recipients) {
 
   var ids = [];
   for (r in recipients) {
-    for (row in data) {
-      if (recipients[r] == data[row][0]) {
-        ids = ids.concat([data[row][8]]); // Col w/ slackID
+    for (i in data) {
+      if (recipients[r] == data[i][0]) {
+        ids = ids.concat([data[i][8]]); // Col w/ slackID
       }
     }
   }
@@ -72,7 +72,7 @@ function getIds(recipients) {
 }
 
 function sendHouseMessage(channelID, person1, person2) {
-  var message = "Brothers on trash duty today are " + person1 + " and " + person2;
+  const message = "Brothers on trash duty today are " + person1 + " and " + person2;
 
   const payload = {
     "channel": channelID,
@@ -93,15 +93,15 @@ function sendSlackGroupMessage(recipients, date, message) {
     "users": ids.join(",")
   };
 
-  if (postSlackMessage(payloadOpen, "create recipient channel")) {
-    const channelID = openData.channel.id;
-    const payloadSend = {
-      "channel": channelID,
-      "text": message
-    };
-    
-    postSlackMessage(payloadSend, "send recipient message")
+  openData = postSlackMessage(payloadOpen, urlopen, "create recipient channel");
+
+  const channelID = openData.channel.id;
+  const payloadSend = {
+    "channel": channelID,
+    "text": message
   };
+    
+  postSlackMessage(payloadSend, urlschedMsg, "send recipient message");
 }
 
 function scheduleSlackMessage(recipients, date, message) {
@@ -113,7 +113,7 @@ function scheduleSlackMessage(recipients, date, message) {
     "users": recipients.join(",")
   };
 
-  postSlackMessage(payloadOpen, "open channel for final reminder")
+  openData = postSlackMessage(payloadOpen, urlopen, "open channel for final reminder")
 
   const channelID = openData.channel.id;
   const scheduledTime = new Date(new Date().setHours(20, 0, 0, 0)); // Sets the time to 8:00 PM.
@@ -125,12 +125,12 @@ function scheduleSlackMessage(recipients, date, message) {
     "text": message
   };
 
-  postSlackMessage(payloadSend, "schedule final reminder")
+  postSlackMessage(payloadSend, urlschedMsg, "schedule final reminder")
   
   return true;
 }
 
-function postSlackMessage(payload, loggingReason) {
+function postSlackMessage(payload, fetchURL, loggingReason) {
   // Takes a payload, string loggingReason to log failures, and outputs whether the API call went through
   const messageParams = {
     method: "post",
@@ -141,14 +141,14 @@ function postSlackMessage(payload, loggingReason) {
     payload: JSON.stringify(payload)
   };
 
-  const scheduleResponse = UrlFetchApp.fetch("https://slack.com/api/chat.scheduleMessage", messageParams);
+  const scheduleResponse = UrlFetchApp.fetch(fetchURL, messageParams);
   const scheduleData = JSON.parse(scheduleResponse.getContentText());
 
   if (!scheduleData.ok) {
     Logger.log("Failed to " + loggingReason + " on " + date);
     Logger.log(scheduleData);
-    return false
+    return;
   }
 
-  return true
+  return scheduleData;
 }
